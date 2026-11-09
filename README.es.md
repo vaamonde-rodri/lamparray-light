@@ -109,3 +109,7 @@ data/                   regla udev, servicio systemd de usuario y lanzador .desk
 install.sh              instalación para el usuario actual
 uninstall.sh            desinstalación
 ```
+
+## Licencia
+
+[MIT](LICENSE) © 2026 Rodrigo Vaamonde

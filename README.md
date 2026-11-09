@@ -112,3 +112,7 @@ data/                   udev rule, systemd user service and .desktop launcher
 install.sh              per-user installation
 uninstall.sh            uninstallation
 ```
+
+## License
+
+[MIT](LICENSE) © 2026 Rodrigo Vaamonde
