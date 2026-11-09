@@ -1,30 +1,42 @@
-# asus-kbd-light
+# lamparray-light
 
 [English](README.md) · **Español**
 
-Control de la retroiluminación RGB del teclado para portátiles **ASUS** cuyo teclado
-interno es un dispositivo **I2C HID LampArray** (el estándar de *Iluminación dinámica*
-de Windows 11), que en Linux no gestionan ni `asusctl` ni OpenRGB.
+Control de la iluminación RGB de dispositivos **HID LampArray** en Linux: el estándar
+abierto detrás de la *Iluminación dinámica* de Windows 11, que usan teclados de
+portátiles y periféricos de muchos fabricantes. Habla directamente con el dispositivo,
+así que funciona donde `asusctl`, OpenRGB o las herramientas del fabricante no dan
+soporte al hardware.
 
-Probado en un **ASUS TUF Gaming A16 (FA608UM)** con Fedora 45 / GNOME.
+![Aplicación Iluminación del teclado](docs/screenshot.png)
 
-![Iluminación del teclado](docs/screenshot.png)
+## Dispositivos compatibles
 
-## ¿Me sirve?
+Cualquier dispositivo cuyo descriptor de informes HID exponga una colección LampArray,
+por I2C, USB o Bluetooth. Los números y tamaños de los informes se leen del descriptor,
+así que no hace falta configuración por modelo.
 
-Comprueba si tu portátil tiene este teclado:
+| Dispositivo | Estado |
+|---|---|
+| ASUS TUF Gaming A16 (FA608UM), teclado interno `ITE51368` `0B05:19B6` | ✅ probado |
+| Otros teclados / dispositivos LampArray | deberían funcionar, se agradecen informes |
+
+Comprueba si tu equipo tiene un dispositivo LampArray:
 
 ```sh
-grep -l "HID_ID=0018:00000B05:000019B6" /sys/class/hidraw/*/device/uevent
+for d in /sys/class/hidraw/*; do
+  od -An -v -tx1 "$d/device/report_descriptor" | tr -dc 0-9a-f |
+    grep -q -e 05590901a101 -e 0659000901a101 && grep HID_NAME "$d/device/uevent"
+done
 ```
 
-Si devuelve una ruta, sí. Otros modelos con teclado LampArray por I2C pueden funcionar
-cambiando `TARGET_ID` en `src/kbd_light.py` y la regla de `data/70-kbd-light.rules`.
+Tras instalar, `kbd-light info` lista los dispositivos detectados con sus números de
+informe y su número de LEDs.
 
 ## Funcionalidades
 
-- **Aplicación GTK4 / libadwaita** con vista previa en directo del teclado.
-- **Color e intensidad** con selector de color y colores rápidos.
+- **Aplicación GTK4 / libadwaita** con vista previa en directo de la iluminación.
+- **Color e intensidad**, con selector de color y colores rápidos.
 - **9 efectos**, cada uno con sus opciones:
 
   | Efecto | Opciones |
@@ -39,27 +51,32 @@ cambiando `TARGET_ID` en `src/kbd_light.py` y la regla de `data/70-kbd-light.rul
   | Destellos | duración, destellos por ráfaga |
   | Temperatura de la CPU | umbrales frío / caliente, alarma |
 
-- **Modo portátil**: devuelve el control al firmware (Fn + ↑/↓).
+- **Modo portátil**: devuelve el control al firmware (p. ej. Fn + ↑/↓).
+- **Varios dispositivos a la vez**: controla juntos todos los LampArray que encuentre.
 - **Servicio de usuario** que anima los efectos y restaura la configuración al iniciar
   sesión y al volver de suspensión.
 - **Línea de comandos** `kbd-light`.
+- **9 idiomas**: inglés, español, alemán, francés, portugués, italiano, ruso, japonés y
+  chino simplificado (sigue el idioma del sistema).
 
 ## Requisitos
 
 - Python 3, PyGObject con GTK 4 y libadwaita ≥ 1.7, pycairo
   (en Fedora con GNOME ya vienen instalados).
 - systemd (servicio de usuario) y udev.
+- `gettext` (`msgfmt`) para instalar las traducciones; sin él la interfaz sale en inglés.
 
 ## Instalación
 
 ```sh
-git clone https://github.com/<usuario>/asus-kbd-light.git
-cd asus-kbd-light
+git clone https://github.com/<usuario>/lamparray-light.git
+cd lamparray-light
 ./install.sh
 ```
 
 El script instala la app para tu usuario en `~/.local` y pide `sudo` solo para la regla
-udev que da acceso al teclado a la sesión activa (sin necesidad de root después).
+udev que da acceso a los dispositivos LampArray a la sesión activa (sin necesidad de
+root después).
 
 Para desinstalar: `./uninstall.sh` (añade `--purge` para borrar también la configuración).
 
@@ -67,11 +84,11 @@ Para desinstalar: `./uninstall.sh` (añade `--purge` para borrar también la con
 
 ```sh
 kbd-light                      # abre la aplicación
-kbd-light info                 # dispositivo y nº de LEDs
+kbd-light info                 # dispositivos detectados, informes y LEDs
 kbd-light color ff6600 80      # color fijo al 80 %
 kbd-light effect rainbow 7     # efecto y velocidad (1-10)
 kbd-light color2 00aaff        # segundo color (alternate)
-kbd-light auto                 # control del firmware (Fn + ↑/↓)
+kbd-light auto                 # control del firmware
 kbd-light off                  # apagar
 ```
 
@@ -82,29 +99,56 @@ La configuración se guarda en `~/.config/kbd-light/config.json`.
 
 ## Cómo funciona
 
-El teclado (`ITE51368`, `0B05:19B6`) se conecta por I2C y Linux lo enlaza a
-`hid-generic`; el driver `hid-asus` solo lo reconoce por USB. El control de la luz
-vía WMI (`asus::kbd_backlight`, que usa `asusctl`) acepta órdenes pero no tiene efecto.
+Un LampArray es una colección de aplicación en la página de uso HID *Lighting and
+Illumination* (`0x59`). `kbd-light` recorre `/sys/class/hidraw/*/device/report_descriptor`,
+analiza cada descriptor y se queda con los dispositivos que implementan los informes
+necesarios. Después envía *feature reports* por `/dev/hidrawN`:
 
-El dispositivo implementa la página HID *Lighting and Illumination* (`0x59`), es decir,
-un **LampArray**. `kbd-light` habla con él directamente por `/dev/hidrawN` con *feature
-reports*:
-
-| Report | Uso |
+| Informe (por uso) | Para qué sirve |
 |---|---|
-| `0x41` LampArrayAttributes | nº de LEDs, tamaño, intervalo mínimo |
-| `0x42` / `0x43` LampAttributes | posición y capacidades de cada LED |
-| `0x45` LampRangeUpdate | color RGBI para un rango de LEDs |
-| `0x46` LampArrayControl | modo autónomo (firmware) on/off |
+| LampArrayAttributes (`0x02`) | nº de LEDs, tamaño, intervalo mínimo de actualización |
+| LampAttributesRequest / Response (`0x20` / `0x22`) | posición y capacidades de cada LED |
+| LampRangeUpdate (`0x60`) | color RGBI para un rango de LEDs |
+| LampArrayControl (`0x70`) | modo autónomo (firmware) on/off |
 
-Este modelo expone **una sola zona** de luz, así que los efectos son de color global; el
-servicio los genera a ~30 fps (~2-3 % de CPU).
+Los números de informe cambian entre fabricantes (el teclado ASUS usa `0x41`–`0x46`), por
+eso se leen del descriptor.
+
+La regla udev da acceso con la etiqueta `uaccess` a los nodos hidraw cuyo descriptor
+contiene la colección LampArray, así que solo afecta a dispositivos de iluminación.
+
+El servicio de usuario genera los efectos a ~30 fps (o más despacio si el dispositivo lo
+pide) y pone todos los LEDs del mismo color; los efectos por LED aún no están
+implementados.
+
+### Por qué hace falta en portátiles ASUS
+
+En el modelo ASUS probado, el teclado va por I2C y Linux lo enlaza a `hid-generic` (el
+driver `hid-asus` solo lo reconoce por USB), y la interfaz WMI de retroiluminación
+(`asus::kbd_backlight`, la que usa `asusctl`) acepta órdenes sin ningún efecto.
+
+## Traducciones
+
+Las traducciones están en `po/`. Para añadir un idioma:
+
+```sh
+cd po
+msginit -l <idioma> -i kbd-light.pot -o <idioma>.po   # y traduce <idioma>.po
+echo <idioma> >> LINGUAS
+./update.sh                                             # comprueba todos los catálogos
+```
+
+Si cambias textos en `src/`, ejecuta `po/update.sh` para actualizar la plantilla y los
+catálogos. Las traducciones actuales están hechas con ayuda de IA: se agradecen
+correcciones de hablantes nativos.
 
 ## Estructura
 
 ```
 src/kbd_light.py        núcleo: protocolo LampArray, efectos, CLI y servicio
 src/kbd_light_gui.py    interfaz GTK4 / libadwaita
+src/i18n.py             configuración de gettext
+po/                     plantilla y catálogos de traducción
 data/                   regla udev, servicio systemd de usuario y lanzador .desktop
 install.sh              instalación para el usuario actual
 uninstall.sh            desinstalación
