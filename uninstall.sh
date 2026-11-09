@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Desinstala asus-kbd-light. La configuración (~/.config/kbd-light) se conserva
-# salvo que se pase --purge.
+# Uninstall kbd-light. Settings (~/.config/kbd-light) are kept unless --purge is given.
 set -euo pipefail
 
 systemctl --user disable --now kbd-light.service 2>/dev/null || true
@@ -17,9 +16,9 @@ if [[ "${1:-}" == "--purge" ]]; then
 fi
 
 if [[ -e /etc/udev/rules.d/70-kbd-light.rules ]]; then
-    echo "==> Eliminando la regla udev (requiere sudo)"
+    echo "==> Removing the udev rule (requires sudo)"
     sudo rm -f /etc/udev/rules.d/70-kbd-light.rules
     sudo udevadm control --reload
 fi
 
-echo "==> asus-kbd-light desinstalado"
+echo "==> kbd-light uninstalled"

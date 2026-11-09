@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
-"""kbd-light: iluminación de teclados y dispositivos HID LampArray (Iluminación dinámica).
+"""kbd-light: lighting control for HID LampArray keyboards and devices
+(Windows "Dynamic Lighting") on Linux.
 
-Uso:
-  kbd-light                    abre la aplicación gráfica
-  kbd-light info               lista los dispositivos LampArray detectados
-  kbd-light color RRGGBB [0-100]  color fijo e intensidad (%)
-  kbd-light effect NOMBRE [1-10]  efecto y velocidad. Efectos: static, breathing,
-                     rainbow, alternate, heartbeat, candle, aurora, strobe, cputemp
-  kbd-light color2 RRGGBB      segundo color (para "alternate")
-  kbd-light auto               control del firmware (Fn + ↑/↓)
-  kbd-light off                apaga
-  kbd-light restore            aplica la última configuración guardada
-  kbd-light daemon             restaura al iniciar sesión y tras suspender
+This module holds the LampArray protocol, the effects, the command line
+interface and the background service. The GTK user interface lives in
+kbd_light_gui.py.
 """
 import colorsys
 import fcntl
@@ -23,6 +16,21 @@ import struct
 import sys
 import time
 
+from i18n import N_, _
+
+USAGE = N_("""Usage:
+  kbd-light                       open the application
+  kbd-light info                  list the detected LampArray devices
+  kbd-light color RRGGBB [0-100]  static color and brightness (%)
+  kbd-light effect NAME [1-10]    effect and speed. Effects: static, breathing,
+                     rainbow, alternate, heartbeat, candle, aurora, strobe, cputemp
+  kbd-light color2 RRGGBB         second color (for "alternate")
+  kbd-light auto                  hand control back to the firmware (Fn + ↑/↓)
+  kbd-light off                   turn the lighting off
+  kbd-light restore               apply the last saved settings
+  kbd-light daemon                run the background service (effects, login, resume)
+""")
+
 CONFIG_DIR = os.path.join(
     os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kbd-light"
 )
@@ -31,17 +39,19 @@ DEFAULT_CONFIG = {
     "enabled": True, "mode": "color", "color": "ffffff", "color2": "0033ff",
     "intensity": 100, "effect": "static", "speed": 5,
 }
-# efecto: (nombre, usa color, usa 2º color, usa velocidad)
+FPS = 30
+
+# effect: (label, uses color, uses second color, uses speed)
 EFFECT_INFO = {
-    "static":    ("Estático",             True,  False, False),
-    "breathing": ("Respiración",          True,  False, True),
-    "rainbow":   ("Arcoíris",             False, False, True),
-    "alternate": ("Alternar dos colores", True,  True,  True),
-    "heartbeat": ("Latido",               True,  False, True),
-    "candle":    ("Vela",                 True,  False, True),
-    "aurora":    ("Aurora",               False, False, True),
-    "strobe":    ("Destellos",            True,  False, True),
-    "cputemp":   ("Temperatura de la CPU", False, False, False),
+    "static":    (N_("Static"),               True,  False, False),
+    "breathing": (N_("Breathing"),            True,  False, True),
+    "rainbow":   (N_("Rainbow"),              False, False, True),
+    "alternate": (N_("Alternate two colors"), True,  True,  True),
+    "heartbeat": (N_("Heartbeat"),            True,  False, True),
+    "candle":    (N_("Candle"),               True,  False, True),
+    "aurora":    (N_("Aurora"),               False, False, True),
+    "strobe":    (N_("Strobe"),               True,  False, True),
+    "cputemp":   (N_("CPU temperature"),      False, False, False),
 }
 EFFECTS = tuple(EFFECT_INFO)
 
@@ -56,7 +66,7 @@ def _choice(key, label, options, default):
             "default": default}
 
 
-AURORA_PALETTES = {  # centro de tono, amplitud, saturación
+AURORA_PALETTES = {  # hue center, hue spread, saturation
     "boreal": (0.42, 0.17, 0.90),
     "sunset": (0.97, 0.09, 0.90),
     "ocean": (0.58, 0.08, 0.90),
@@ -64,62 +74,62 @@ AURORA_PALETTES = {  # centro de tono, amplitud, saturación
     "lava": (0.03, 0.04, 1.00),
 }
 
-# Opciones específicas de cada efecto
+# Per-effect options (labels are translated by the UI)
 EFFECT_PARAMS = {
     "breathing": [
-        _range("min", "Brillo mínimo", 0, 80, 0, " %", 5),
-        _choice("shape", "Curva", [("smooth", "Suave"), ("sine", "Senoidal"),
-                                   ("sharp", "Rápida y corta")], "smooth"),
+        _range("min", N_("Minimum brightness"), 0, 80, 0, " %", 5),
+        _choice("shape", N_("Curve"), [("smooth", N_("Smooth")), ("sine", N_("Sine")),
+                                       ("sharp", N_("Short and sharp"))], "smooth"),
     ],
     "rainbow": [
-        _range("saturation", "Saturación", 20, 100, 100, " %", 5),
-        _choice("direction", "Sentido", [("fwd", "Rojo → verde → azul"),
-                                         ("rev", "Rojo → azul → verde")], "fwd"),
+        _range("saturation", N_("Saturation"), 20, 100, 100, " %", 5),
+        _choice("direction", N_("Direction"), [("fwd", N_("Red → green → blue")),
+                                               ("rev", N_("Red → blue → green"))], "fwd"),
     ],
     "alternate": [
-        _choice("transition", "Transición", [("smooth", "Fundido"), ("cut", "Corte")],
+        _choice("transition", N_("Transition"), [("smooth", N_("Fade")), ("cut", N_("Cut"))],
                 "smooth"),
     ],
     "heartbeat": [
-        _range("rest", "Brillo en reposo", 0, 60, 8, " %", 2),
-        _choice("beats", "Pulsos", [("double", "Doble (lub-dub)"), ("single", "Simple")],
-                "double"),
+        _range("rest", N_("Resting brightness"), 0, 60, 8, " %", 2),
+        _choice("beats", N_("Beats"), [("double", N_("Double (lub-dub)")),
+                                       ("single", N_("Single"))], "double"),
     ],
     "candle": [
-        _range("flicker", "Intensidad del parpadeo", 10, 100, 50, " %", 5),
+        _range("flicker", N_("Flicker strength"), 10, 100, 50, " %", 5),
     ],
     "aurora": [
-        _choice("palette", "Paleta", [("boreal", "Boreal"), ("sunset", "Atardecer"),
-                                      ("ocean", "Océano"), ("forest", "Bosque"),
-                                      ("lava", "Lava")], "boreal"),
+        _choice("palette", N_("Palette"), [("boreal", N_("Boreal")), ("sunset", N_("Sunset")),
+                                           ("ocean", N_("Ocean")), ("forest", N_("Forest")),
+                                           ("lava", N_("Lava"))], "boreal"),
     ],
     "strobe": [
-        _range("flash", "Duración del destello", 30, 300, 70, " ms", 10),
-        _range("burst", "Destellos por ráfaga", 1, 4, 1),
+        _range("flash", N_("Flash duration"), 30, 300, 70, " ms", 10),
+        _range("burst", N_("Flashes per burst"), 1, 4, 1),
     ],
     "cputemp": [
-        _range("cold", "Temperatura «fría» (verde)", 30, 70, 40, " °C"),
-        _range("hot", "Temperatura «caliente» (rojo)", 60, 100, 90, " °C"),
-        _choice("alarm", "Al superar la caliente", [("none", "Nada"),
-                                                    ("blink", "Parpadear en rojo")], "blink"),
+        _range("cold", N_("“Cold” temperature (green)"), 30, 70, 40, " °C"),
+        _range("hot", N_("“Hot” temperature (red)"), 60, 100, 90, " °C"),
+        _choice("alarm", N_("Above the hot temperature"), [("none", N_("Nothing")),
+                                                           ("blink", N_("Blink red"))], "blink"),
     ],
 }
 
 
 def get_params(cfg, effect):
-    """Valores de las opciones del efecto (por defecto + guardados)."""
+    """Option values of an effect (defaults updated with the saved ones)."""
     values = {p["key"]: p["default"] for p in EFFECT_PARAMS.get(effect, [])}
     values.update(cfg.get("params", {}).get(effect, {}))
     return values
 
 
-FPS = 30
-
-PERMISSION_HELP = (
-    "Sin permiso para acceder al dispositivo de iluminación. Instala la regla udev:\n"
-    "  sudo install -m 644 ~/.local/share/kbd-light/70-kbd-light.rules /etc/udev/rules.d/\n"
-    "  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw"
-)
+# --- Errors ----------------------------------------------------------------------
+def permission_help():
+    return _(
+        "No permission to access the lighting device. Install the udev rule:\n"
+        "  sudo install -m 644 ~/.local/share/kbd-light/70-kbd-light.rules /etc/udev/rules.d/\n"
+        "  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw"
+    )
 
 
 class DeviceError(Exception):
@@ -134,8 +144,8 @@ def _ioc(direction, nr, size):
     return (direction << 30) | (size << 16) | (ord("H") << 8) | nr
 
 
-# --- Descriptor HID ------------------------------------------------------------
-# Página de uso "Lighting and Illumination" (0x59) y colecciones LampArray
+# --- HID report descriptor -------------------------------------------------------
+# "Lighting and Illumination" usage page (0x59) and its LampArray collections
 LIGHTING_PAGE = 0x59
 LAMPARRAY_USAGE = (LIGHTING_PAGE << 16) | 0x01
 LAMP_REPORTS = {
@@ -150,11 +160,11 @@ REQUIRED_REPORTS = ("attributes", "range_update", "control")
 
 
 def parse_lamparray(desc):
-    """Analiza un descriptor de informe HID.
+    """Parse a HID report descriptor.
 
-    Devuelve {nombre: (report_id, longitud_en_bytes)} para los informes de la
-    primera colección LampArray, o None si el dispositivo no es un LampArray
-    utilizable. La longitud incluye el byte de report ID.
+    Return {name: (report_id, length_in_bytes)} for the reports of the first
+    LampArray collection, or None if the device is not a usable LampArray.
+    The length includes the report ID byte.
     """
     page = report_id = rsize = rcount = 0
     gstack, cstack, usages = [], [], []
@@ -163,7 +173,7 @@ def parse_lamparray(desc):
     i = 0
     while i < len(desc):
         b = desc[i]
-        if b == 0xFE:  # "long item": no se usa en la práctica, se salta
+        if b == 0xFE:  # long item: unused in practice, skip it
             i += 3 + (desc[i + 1] if i + 1 < len(desc) else 0)
             continue
         size = (0, 1, 2, 4)[b & 3]
@@ -171,7 +181,7 @@ def parse_lamparray(desc):
         data = int.from_bytes(desc[i + 1:i + 1 + size], "little")
         i += 1 + size
 
-        if kind == 1:  # global
+        if kind == 1:  # global item
             if tag == 0:
                 page = data
             elif tag == 7:
@@ -184,10 +194,10 @@ def parse_lamparray(desc):
                 gstack.append((page, report_id, rsize, rcount))
             elif tag == 11 and gstack:
                 page, report_id, rsize, rcount = gstack.pop()
-        elif kind == 2:  # local
+        elif kind == 2:  # local item
             if tag == 0:
                 usages.append(data if size == 4 else (page << 16) | data)
-        elif kind == 0:  # main
+        elif kind == 0:  # main item
             if tag == 0xA:  # Collection
                 usage = usages[0] if usages else 0
                 name = None
@@ -198,7 +208,7 @@ def parse_lamparray(desc):
                 cstack.append(name)
             elif tag == 0xC:  # End Collection
                 if in_lamparray is not None and len(cstack) == in_lamparray:
-                    break  # fin de la colección LampArray
+                    break  # end of the LampArray collection
                 if cstack:
                     cstack.pop()
             elif tag == 0xB and in_lamparray is not None:  # Feature
@@ -216,7 +226,7 @@ def parse_lamparray(desc):
 
 
 def find_devices():
-    """Lista los dispositivos hidraw que son LampArray: [{path, name, id, reports}]."""
+    """List the hidraw devices that are LampArrays: [{path, name, id, reports}]."""
     found = []
     for d in sorted(glob.glob("/sys/class/hidraw/hidraw*"),
                     key=lambda p: int(p.rsplit("hidraw", 1)[1])):
@@ -228,7 +238,7 @@ def find_devices():
             info = {}
             with open(os.path.join(d, "device/uevent")) as f:
                 for line in f:
-                    k, _, v = line.strip().partition("=")
+                    k, _sep, v = line.strip().partition("=")
                     info[k] = v
         except OSError:
             continue
@@ -241,14 +251,14 @@ def find_devices():
     return found
 
 
-# --- Dispositivo LampArray -----------------------------------------------------
+# --- LampArray device ------------------------------------------------------------
 class LampArray:
     def __init__(self, dev):
         self.path, self.name, self.reports = dev["path"], dev["name"], dev["reports"]
         try:
             self.fd = os.open(self.path, os.O_RDWR)
         except PermissionError as e:
-            raise PermissionDenied(PERMISSION_HELP) from e
+            raise PermissionDenied(permission_help()) from e
         self._attrs = None
 
     def close(self):
@@ -276,7 +286,7 @@ class LampArray:
 
     @property
     def attributes(self):
-        """LampArrayAttributes: LampCount(u16), ancho, alto, fondo (µm), tipo, intervalo (µs)."""
+        """LampArrayAttributes: LampCount(u16), width, height, depth (µm), kind, interval (µs)."""
         if self._attrs is None:
             data = self._get_feature("attributes")
             off = 1 if self.reports["attributes"][0] else 0
@@ -294,7 +304,7 @@ class LampArray:
         self._set_feature("control", bytes([1 if on else 0]))
 
     def write_rgb(self, r, g, b):
-        """Escribe un color a todos los LEDs (requiere modo autónomo desactivado)."""
+        """Set every lamp to one color (autonomous mode must be off)."""
         # LampRangeUpdate: flags(u8) start(u16) end(u16) R G B I
         end = max(self.lamp_count - 1, 0)
         self._set_feature("range_update", struct.pack("<BHHBBBB", 0x01, 0, end, r, g, b, 255))
@@ -319,13 +329,13 @@ class LampArray:
 
 
 def open_devices():
-    """Abre todos los LampArray accesibles.
+    """Open every accessible LampArray.
 
-    Lanza DeviceError si no hay ninguno y PermissionDenied si los hay pero
-    ninguno se puede abrir."""
+    Raise DeviceError if there is none, and PermissionDenied if there are some
+    but none of them can be opened."""
     devs = find_devices()
     if not devs:
-        raise DeviceError("No se encontró ningún dispositivo de iluminación LampArray.")
+        raise DeviceError(_("No LampArray lighting device found."))
     opened, denied = [], None
     for d in devs:
         try:
@@ -335,7 +345,7 @@ def open_devices():
         except OSError:
             pass
     if not opened:
-        raise denied or DeviceError("No se pudo abrir ningún dispositivo LampArray.")
+        raise denied or DeviceError(_("Could not open any LampArray device."))
     return opened
 
 
@@ -347,10 +357,11 @@ def close_all(devices):
             pass
 
 
+# --- Effects ---------------------------------------------------------------------
 def parse_hex(h):
     h = h.strip().lstrip("#")
     if len(h) != 6:
-        raise ValueError(f"Color no válido: {h!r} (usa RRGGBB)")
+        raise ValueError(_("Invalid color: {color!r} (use RRGGBB)").format(color=h))
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
 
@@ -360,7 +371,7 @@ def is_animated(cfg):
 
 
 def _noise(t):
-    """Ruido suave y determinista en [-1, 1] (suma de senos inconmensurables)."""
+    """Smooth deterministic noise in [-1, 1] (sum of incommensurable sines)."""
     return (math.sin(t) + 0.6 * math.sin(2.17 * t + 1.3)
             + 0.3 * math.sin(4.73 * t + 0.7)) / 1.9
 
@@ -369,7 +380,7 @@ _temp_cache = {"t": -1.0, "value": None, "path": None}
 
 
 def cpu_temp():
-    """Temperatura de la CPU en °C (k10temp/coretemp), leída como mucho 1 vez/s."""
+    """CPU temperature in °C (k10temp/coretemp/zenpower), read at most once per second."""
     now = time.monotonic()
     if now - _temp_cache["t"] < 1.0:
         return _temp_cache["value"]
@@ -400,16 +411,16 @@ def _hsv(h, s=1.0, v=1.0):
 
 
 def frame(cfg, t):
-    """Color (r, g, b) del efecto configurado en el instante t (segundos)."""
+    """Color (r, g, b) of the configured effect at time t (seconds)."""
     k = max(0, min(100, int(cfg.get("intensity", 100)))) / 100
     speed = max(1, min(10, int(cfg.get("speed", 5))))
-    s = (speed - 1) / 9  # 0 (lento) … 1 (rápido)
+    s = (speed - 1) / 9  # 0 (slow) … 1 (fast)
     effect = cfg.get("effect", "static")
     color = parse_hex(cfg.get("color", "ffffff"))
     p = get_params(cfg, effect)
 
     if effect == "rainbow":
-        period = 20 - 18 * s  # 20 s … 2 s por vuelta
+        period = 20 - 18 * s  # 20 s … 2 s per cycle
         direction = -1 if p["direction"] == "rev" else 1
         return _scale(_hsv(direction * t / period, p["saturation"] / 100), k)
 
@@ -417,7 +428,7 @@ def frame(cfg, t):
         period = 8 - 7 * s
         x = (1 - math.cos(2 * math.pi * t / period)) / 2
         if p["shape"] == "smooth":
-            x = x * x  # más natural a la vista
+            x = x * x  # looks more natural
         elif p["shape"] == "sharp":
             x = x ** 6
         lo = p["min"] / 100
@@ -430,13 +441,13 @@ def frame(cfg, t):
             x = 0.0 if (t % period) < period / 2 else 1.0
         else:
             x = (1 - math.cos(2 * math.pi * t / period)) / 2
-        # mezcla en luz lineal: evita el "bache" gris y oscuro a mitad del fundido
+        # blend in linear light: avoids a dull grey dip halfway through the fade
         mix = tuple(255 * (((a / 255) ** 2.2) * (1 - x) + ((b / 255) ** 2.2) * x) ** (1 / 2.2)
                     for a, b in zip(color, c2))
         return _scale(mix, k)
 
     if effect == "heartbeat":
-        period = 1.8 - 1.2 * s  # ~33 … 100 pulsaciones/min
+        period = 1.8 - 1.2 * s  # ~33 … 100 beats per minute
         ph = (t % period) / period
         beat = math.exp(-((ph - 0.08) / 0.07) ** 2)
         if p["beats"] == "double":
@@ -461,7 +472,7 @@ def frame(cfg, t):
         flash = p["flash"] / 1000
         burst = int(p["burst"])
         gap = flash * 2.5
-        period = max(1.5 - 1.25 * s, burst * gap + 0.15)  # máx. ~4 ráfagas/s
+        period = max(1.5 - 1.25 * s, burst * gap + 0.15)  # at most ~4 bursts per second
         ph = t % period
         on = any(i * gap <= ph < i * gap + flash for i in range(burst))
         return _scale(color, k if on else 0)
@@ -479,6 +490,7 @@ def frame(cfg, t):
     return _scale(color, k)
 
 
+# --- Settings --------------------------------------------------------------------
 def load_config():
     cfg = dict(DEFAULT_CONFIG)
     try:
@@ -498,7 +510,7 @@ def save_config(cfg):
 
 
 def apply_config(cfg=None):
-    """Aplica la configuración a todos los dispositivos LampArray accesibles."""
+    """Apply the settings to every accessible LampArray device."""
     cfg = cfg or load_config()
     devices = open_devices()
     try:
@@ -508,7 +520,7 @@ def apply_config(cfg=None):
 
 
 def _apply_all(devices, cfg, t=0.0):
-    """Aplica a cada dispositivo; devuelve los que respondieron. Falla solo si fallan todos."""
+    """Apply to each device and return those that responded. Fails only if all fail."""
     ok, error = [], None
     for d in devices:
         try:
@@ -522,20 +534,23 @@ def _apply_all(devices, cfg, t=0.0):
 
 
 def restore_with_retries(attempts=30, delay=1.0):
-    """Al iniciar sesión o volver de suspensión el dispositivo/permiso puede tardar."""
-    for i in range(attempts):
+    """After login or resume, the device or its permission may take a moment."""
+    last = None
+    for _i in range(attempts):
         try:
             apply_config()
             return True
         except (DeviceError, OSError) as e:
             last = e
             time.sleep(delay)
-    print(f"kbd-light: no se pudo restaurar: {last}", file=sys.stderr)
+    print("kbd-light: " + _("could not restore the settings: {error}").format(error=last),
+          file=sys.stderr)
     return False
 
 
+# --- Background service ----------------------------------------------------------
 class Daemon:
-    """Aplica la configuración, anima los efectos y reacciona a cambios/suspensión."""
+    """Applies the settings, animates effects and reacts to changes and suspend."""
 
     def __init__(self):
         from gi.repository import GLib
@@ -584,10 +599,11 @@ class Daemon:
                 self.retries_left -= 1
                 self.retry = self.GLib.timeout_add_seconds(1, self._start)
             else:
-                print(f"kbd-light: no se pudo aplicar: {e}", file=sys.stderr)
+                print("kbd-light: " + _("could not apply the settings: {error}").format(error=e),
+                      file=sys.stderr)
             return False
         if is_animated(self.cfg):
-            # respeta el intervalo mínimo que declare el dispositivo más lento
+            # honor the minimum update interval of the slowest device
             min_ms = max(d.attributes["min_interval_us"] for d in self.kbs) / 1000
             self.anim = self.GLib.timeout_add(max(1000 // FPS, math.ceil(min_ms)), self._tick)
         else:
@@ -603,7 +619,7 @@ class Daemon:
                 kb.write_rgb(*rgb)
             self.last = rgb
         except OSError:
-            # El dispositivo pudo reenumerarse: reintentar desde cero
+            # the device may have been re-enumerated: start over
             self.anim = 0
             self.reload(retries=10)
             return False
@@ -622,11 +638,11 @@ class Daemon:
         return False
 
     def on_sleep(self, _conn, _sender, _path, _iface, _signal, params):
-        if params.unpack()[0]:  # va a suspender
+        if params.unpack()[0]:  # about to suspend
             self.paused = True
             self._stop_anim()
             self._close()
-        else:  # vuelve de suspensión
+        else:  # resumed
             self.paused = False
             self.GLib.timeout_add_seconds(2, lambda: self.reload(retries=10) and False)
 
@@ -650,6 +666,28 @@ def daemon():
     Daemon().run()
 
 
+# --- Command line ----------------------------------------------------------------
+def print_info():
+    devs = find_devices()
+    if not devs:
+        raise DeviceError(_("No LampArray lighting device found."))
+    for dev in devs:
+        print(f"{dev['path']}  {dev['name']}  [{dev['id']}]")
+        print("  " + _("reports:") + " " + ", ".join(
+            f"{n}=0x{rid:02x}" for n, (rid, _len) in sorted(dev["reports"].items())))
+        try:
+            with LampArray(dev) as la:
+                a = la.attributes
+                print("  " + _("LEDs: {count}  size: {width:.0f}×{height:.0f} mm  "
+                               "min. interval: {interval:g} ms").format(
+                    count=a["lamp_count"], width=a["width"] / 1000,
+                    height=a["height"] / 1000, interval=a["min_interval_us"] / 1000))
+        except PermissionDenied:
+            print("  " + _("(no permission: install the udev rule)"))
+        except OSError as e:
+            print("  " + _("(could not read the attributes: {error})").format(error=e.strerror))
+
+
 def main(argv):
     if len(argv) < 2 or argv[1] == "gui":
         import kbd_light_gui
@@ -658,26 +696,10 @@ def main(argv):
     cmd = argv[1]
     try:
         if cmd == "info":
-            devs = find_devices()
-            if not devs:
-                raise DeviceError("No se encontró ningún dispositivo de iluminación LampArray.")
-            for dev in devs:
-                print(f"{dev['path']}  {dev['name']}  [{dev['id']}]")
-                print("  informes: " + ", ".join(
-                    f"{n}=0x{rid:02x}" for n, (rid, _l) in sorted(dev["reports"].items())))
-                try:
-                    with LampArray(dev) as la:
-                        a = la.attributes
-                        print(f"  LEDs: {a['lamp_count']}  tamaño: {a['width'] / 1000:.0f}×"
-                              f"{a['height'] / 1000:.0f} mm  intervalo mín.: "
-                              f"{a['min_interval_us'] / 1000:g} ms")
-                except PermissionDenied:
-                    print("  (sin permiso: instala la regla udev)")
-                except OSError as e:
-                    print(f"  (error al leer atributos: {e.strerror})")
+            print_info()
         elif cmd == "color":
             if len(argv) < 3:
-                sys.exit(__doc__)
+                sys.exit(_(USAGE))
             parse_hex(argv[2])
             cfg = load_config()
             cfg.update(enabled=True, mode="color", color=argv[2].lstrip("#").lower())
@@ -687,19 +709,19 @@ def main(argv):
             save_config(cfg)
         elif cmd == "color2":
             if len(argv) < 3:
-                sys.exit(__doc__)
+                sys.exit(_(USAGE))
             parse_hex(argv[2])
             cfg = load_config()
             cfg["color2"] = argv[2].lstrip("#").lower()
             save_config(cfg)
         elif cmd == "effect":
             if len(argv) < 3 or argv[2] not in EFFECTS:
-                sys.exit(__doc__)
+                sys.exit(_(USAGE))
             cfg = load_config()
             cfg.update(enabled=True, mode="color", effect=argv[2])
             if len(argv) > 3:
                 cfg["speed"] = int(argv[3])
-            save_config(cfg)  # el servicio en segundo plano se encarga de animarlo
+            save_config(cfg)  # the background service picks it up and animates it
             if not is_animated(cfg):
                 apply_config(cfg)
         elif cmd in ("auto", "off"):
@@ -715,7 +737,7 @@ def main(argv):
         elif cmd == "daemon":
             daemon()
         else:
-            sys.exit(__doc__)
+            sys.exit(_(USAGE))
     except (DeviceError, ValueError) as e:
         sys.exit(str(e))
     return 0

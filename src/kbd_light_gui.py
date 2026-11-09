@@ -1,4 +1,4 @@
-"""Interfaz GTK4/libadwaita para kbd-light."""
+"""GTK4 / libadwaita user interface for kbd-light."""
 import copy
 import math
 import subprocess
@@ -14,15 +14,16 @@ gi.require_foreign("cairo")
 from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
 
 import kbd_light as core  # noqa: E402
+from i18n import N_, _, ngettext  # noqa: E402
 
 APP_ID = "es.rvaamonde.KbdLight"
 EFFECTS = list(core.EFFECTS)
 
 PRESETS = [
-    ("ffffff", "Blanco"), ("ffd9a0", "Blanco cálido"), ("ff0000", "Rojo"),
-    ("ff6600", "Naranja"), ("ffcc00", "Amarillo"), ("00ff40", "Verde"),
-    ("00ffcc", "Turquesa"), ("00aaff", "Azul claro"), ("0033ff", "Azul"),
-    ("8000ff", "Morado"), ("ff00aa", "Rosa"),
+    ("ffffff", N_("White")), ("ffd9a0", N_("Warm white")), ("ff0000", N_("Red")),
+    ("ff6600", N_("Orange")), ("ffcc00", N_("Yellow")), ("00ff40", N_("Green")),
+    ("00ffcc", N_("Turquoise")), ("00aaff", N_("Light blue")), ("0033ff", N_("Blue")),
+    ("8000ff", N_("Purple")), ("ff00aa", N_("Pink")),
 ]
 
 CSS = """
@@ -63,7 +64,7 @@ def hex_to_rgba(h):
 
 
 def ensure_service():
-    """El servicio de usuario es quien anima los efectos: arrancarlo si no lo está."""
+    """The user service animates the effects: start it if it is not running."""
     subprocess.Popen(["systemctl", "--user", "start", "kbd-light.service"],
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -78,7 +79,7 @@ def rounded_rect(cr, x, y, w, h, r):
     cr.close_path()
 
 
-# Filas del teclado: anchos relativos de cada tecla
+# Keyboard rows: relative width of each key
 KEY_ROWS = [
     [1] * 14,
     [1.5] + [1] * 12 + [1.5],
@@ -89,14 +90,14 @@ KEY_ROWS = [
 
 
 def draw_keyboard(cr, w, full_h, rgb, bottom=0):
-    """Dibuja un teclado estilizado iluminado con el color rgb (0-255).
+    """Draw a stylized keyboard lit with the rgb color (0-255).
 
-    `bottom` reserva espacio abajo (para el texto superpuesto)."""
+    `bottom` reserves room at the bottom (for the overlaid caption)."""
     h = full_h - bottom
     r, g, b = (c / 255 for c in rgb)
     lum = max(r, g, b)
 
-    # Resplandor de fondo
+    # Background glow
     cx, cy = w / 2, h / 2 + 6
     glow = cairo.RadialGradient(cx, cy, 0, cx, cy, max(w, full_h) * 0.6)
     glow.add_color_stop_rgba(0, r, g, b, 0.45 * lum)
@@ -104,7 +105,7 @@ def draw_keyboard(cr, w, full_h, rgb, bottom=0):
     cr.set_source(glow)
     cr.paint()
 
-    # Chasis
+    # Chassis
     kw = min(w - 48, (h - 28) * 2.6)
     kh = kw / 2.6
     x0, y0 = (w - kw) / 2, (h - kh) / 2 + 6
@@ -115,7 +116,7 @@ def draw_keyboard(cr, w, full_h, rgb, bottom=0):
     cr.set_line_width(1)
     cr.stroke()
 
-    # Teclas
+    # Keys
     pad = kw * 0.035
     gap = kw * 0.008
     unit = (kw - 2 * pad - 13 * gap) / 15
@@ -128,13 +129,13 @@ def draw_keyboard(cr, w, full_h, rgb, bottom=0):
         for kwid in row:
             wk = kwid * unit * scale
             rounded_rect(cr, x, y, wk, row_h, 4)
-            # tecla: base oscura + luz que se cuela por los bordes
+            # key: dark base + light leaking around the edges
             cr.set_source_rgb(*(bc + 0.25 * lc for bc, lc in zip(base, (r, g, b))))
             cr.fill_preserve()
             cr.set_source_rgba(r, g, b, 0.85 * lum)
             cr.set_line_width(1.6)
             cr.stroke()
-            # leyenda
+            # legend
             if kwid < 3:
                 cr.set_source_rgba(r * 0.6 + 0.4 * lum, g * 0.6 + 0.4 * lum,
                                    b * 0.6 + 0.4 * lum, 0.9 * lum)
@@ -164,7 +165,7 @@ def draw_dot(cr, w, h, rgb, dim=False):
 
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="Iluminación del teclado")
+        super().__init__(application=app, title=_("Keyboard Lighting"))
         self.set_default_size(520, 860)
         self.cfg = core.load_config()
         self.cfg.setdefault("params", {})
@@ -177,17 +178,17 @@ class Window(Adw.ApplicationWindow):
         self.t0 = time.monotonic()
         self.param_rows = []
 
-        # --- Estructura
+        # --- Layout
         toolbar = Adw.ToolbarView()
-        self.win_title = Adw.WindowTitle(title="Iluminación del teclado")
+        self.win_title = Adw.WindowTitle(title=_("Keyboard Lighting"))
         header = Adw.HeaderBar(title_widget=self.win_title)
         self.power = Gtk.Switch(valign=Gtk.Align.CENTER,
-                                tooltip_text="Encender o apagar la iluminación")
+                                tooltip_text=_("Turn the lighting on or off"))
         self.power.connect("notify::active", self.on_change)
         header.pack_start(self.power)
         toolbar.add_top_bar(header)
 
-        self.banner = Adw.Banner(button_label="Reintentar")
+        self.banner = Adw.Banner(button_label=_("Retry"))
         self.banner.connect("button-clicked", lambda *_: self.check_device())
         toolbar.add_top_bar(self.banner)
 
@@ -203,7 +204,7 @@ class Window(Adw.ApplicationWindow):
                        margin_top=18, margin_bottom=24, margin_start=16, margin_end=16)
         clamp.set_child(body)
 
-        # --- Vista previa
+        # --- Preview
         preview = Gtk.Overlay(css_classes=["preview-card"], overflow=Gtk.Overflow.HIDDEN)
         self.preview = Gtk.DrawingArea(content_height=270, hexpand=True)
         self.preview.set_draw_func(self.draw_preview)
@@ -219,18 +220,18 @@ class Window(Adw.ApplicationWindow):
         preview.add_overlay(caption)
         body.append(preview)
 
-        # --- Modo
+        # --- Mode
         self.mode = Adw.ToggleGroup(css_classes=["mode-toggle", "round"],
                                     homogeneous=True)
-        self.mode.add(Adw.Toggle(name="color", label="Personalizado",
+        self.mode.add(Adw.Toggle(name="color", label=_("Custom"),
                                  icon_name="applications-graphics-symbolic"))
-        self.mode.add(Adw.Toggle(name="auto", label="Portátil (Fn ↑/↓)",
+        self.mode.add(Adw.Toggle(name="auto", label=_("Laptop (Fn ↑/↓)"),
                                  icon_name="computer-symbolic"))
         self.mode.connect("notify::active-name", self.on_change)
         body.append(self.mode)
 
-        # --- Efectos
-        self.effects_group = Adw.PreferencesGroup(title="Efecto")
+        # --- Effects
+        self.effects_group = Adw.PreferencesGroup(title=_("Effect"))
         body.append(self.effects_group)
         grid = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
                            min_children_per_line=3, max_children_per_line=3,
@@ -244,7 +245,7 @@ class Window(Adw.ApplicationWindow):
             dot.set_draw_func(self.draw_effect_dot, e)
             dot.add_tick_callback(lambda w, _c: w.queue_draw() or True)
             box.append(dot)
-            box.append(Gtk.Label(label=core.EFFECT_INFO[e][0], wrap=True,
+            box.append(Gtk.Label(label=_(core.EFFECT_INFO[e][0]), wrap=True,
                                  justify=Gtk.Justification.CENTER, max_width_chars=12))
             btn = Gtk.ToggleButton(child=box, css_classes=["flat", "effect-card"])
             if first:
@@ -257,21 +258,21 @@ class Window(Adw.ApplicationWindow):
         self.effects_group.add(grid)
 
         # --- Color
-        self.color_group = Adw.PreferencesGroup(title="Color")
+        self.color_group = Adw.PreferencesGroup(title=_("Color"))
         body.append(self.color_group)
 
-        self.color_row = Adw.ActionRow(title="Color principal")
+        self.color_row = Adw.ActionRow(title=_("Main color"))
         self.color_btn = Gtk.ColorDialogButton(
-            dialog=Gtk.ColorDialog(with_alpha=False, title="Elige un color"),
+            dialog=Gtk.ColorDialog(with_alpha=False, title=_("Choose a color")),
             valign=Gtk.Align.CENTER)
         self.color_btn.connect("notify::rgba", self.on_change)
         self.color_row.add_suffix(self.color_btn)
         self.color_row.set_activatable_widget(self.color_btn)
         self.color_group.add(self.color_row)
 
-        self.color2_row = Adw.ActionRow(title="Segundo color")
+        self.color2_row = Adw.ActionRow(title=_("Second color"))
         self.color2_btn = Gtk.ColorDialogButton(
-            dialog=Gtk.ColorDialog(with_alpha=False, title="Elige el segundo color"),
+            dialog=Gtk.ColorDialog(with_alpha=False, title=_("Choose the second color")),
             valign=Gtk.Align.CENTER)
         self.color2_btn.connect("notify::rgba", self.on_change)
         self.color2_row.add_suffix(self.color2_btn)
@@ -282,28 +283,28 @@ class Window(Adw.ApplicationWindow):
                               max_children_per_line=11, min_children_per_line=6,
                               column_spacing=8, row_spacing=8, margin_top=12)
         for h, name in PRESETS:
-            b = Gtk.Button(tooltip_text=name, halign=Gtk.Align.CENTER,
+            b = Gtk.Button(tooltip_text=_(name), halign=Gtk.Align.CENTER,
                            css_classes=["circular", "swatch", f"swatch-{h}"])
             b.connect("clicked", self.on_preset, h)
             presets.append(b)
         self.color_group.add(presets)
 
-        # --- Ajustes
+        # --- Settings
         self.settings_group = Adw.PreferencesGroup()
         body.append(self.settings_group)
 
         self.intensity = self.make_scale(1, 100, 1, lambda v: f"{int(v)} %")
-        row = Adw.ActionRow(title="Intensidad", icon_name="display-brightness-symbolic")
+        row = Adw.ActionRow(title=_("Brightness"), icon_name="display-brightness-symbolic")
         row.add_suffix(self.intensity)
         self.settings_group.add(row)
 
         self.speed = self.make_scale(1, 10, 1, lambda v: f"{int(v)}")
-        self.speed_row = Adw.ActionRow(title="Velocidad",
+        self.speed_row = Adw.ActionRow(title=_("Speed"),
                                        icon_name="media-seek-forward-symbolic")
         self.speed_row.add_suffix(self.speed)
         self.settings_group.add(self.speed_row)
 
-        # --- Estado inicial desde la configuración guardada
+        # --- Initial state from the saved settings
         self.power.set_active(self.cfg.get("enabled", True))
         self.mode.set_active_name(self.cfg["mode"])
         self.effect_buttons[self.cfg["effect"]].set_active(True)
@@ -316,9 +317,9 @@ class Window(Adw.ApplicationWindow):
         self.update_ui()
         self.check_device()
         ensure_service()
-        GLib.timeout_add_seconds(2, lambda: self.update_ui() or True)  # p. ej. temperatura
+        GLib.timeout_add_seconds(2, lambda: self.update_ui() or True)  # e.g. CPU temperature
 
-    # ---------- helpers de construcción
+    # ---------- building helpers
     def make_scale(self, lo, hi, step, fmt, callback=None):
         s = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, lo, hi, step)
         s.set_size_request(210, -1)
@@ -345,19 +346,20 @@ class Window(Adw.ApplicationWindow):
                 self._loading, was = True, self._loading
                 scale.set_value(values[key])
                 self._loading = was
-                row = Adw.ActionRow(title=spec["label"])
+                row = Adw.ActionRow(title=_(spec["label"]))
                 row.add_suffix(scale)
             else:
                 ids = [o[0] for o in spec["options"]]
-                row = Adw.ComboRow(title=spec["label"],
-                                   model=Gtk.StringList.new([o[1] for o in spec["options"]]))
+                row = Adw.ComboRow(
+                    title=_(spec["label"]),
+                    model=Gtk.StringList.new([_(o[1]) for o in spec["options"]]))
                 row.set_selected(ids.index(values[key]) if values[key] in ids else 0)
                 row.connect("notify::selected",
                             lambda r, _p, k=key, ids=ids: self.set_param(k, ids[r.get_selected()]))
             self.settings_group.add(row)
             self.param_rows.append(row)
 
-    # ---------- dibujo
+    # ---------- drawing
     def current_rgb(self, cfg, effect=None):
         if effect:
             cfg = dict(cfg, effect=effect, enabled=True, mode="color")
@@ -377,12 +379,13 @@ class Window(Adw.ApplicationWindow):
         else:
             draw_dot(cr, w, h, self.current_rgb(cfg, effect))
 
-    # ---------- estado
+    # ---------- state
     def update_ui(self):
         on = self.power.get_active()
         custom = on and self.cfg["mode"] == "color"
         effect = self.cfg["effect"]
-        name, uses_color, uses_color2, uses_speed = core.EFFECT_INFO[effect]
+        label, uses_color, uses_color2, uses_speed = core.EFFECT_INFO[effect]
+        name = _(label)
 
         self.mode.set_sensitive(on)
         for g in (self.effects_group, self.color_group, self.settings_group):
@@ -390,23 +393,24 @@ class Window(Adw.ApplicationWindow):
         self.color_group.set_visible(uses_color)
         self.color2_row.set_visible(uses_color2)
         self.speed_row.set_visible(uses_speed)
-        self.settings_group.set_title(f"Ajustes · {name}")
+        self.settings_group.set_title(_("Settings · {effect}").format(effect=name))
 
         if not on:
-            title, sub = "Apagado", "La iluminación del teclado está desactivada"
+            title, sub = _("Off"), _("The keyboard lighting is turned off")
         elif self.cfg["mode"] == "auto":
-            title, sub = "Portátil", "El brillo se controla con Fn + ↑ / ↓"
+            title, sub = _("Laptop"), _("Brightness is controlled with Fn + ↑ / ↓")
         else:
             title = name
             if effect == "cputemp":
                 temp = core.cpu_temp()
-                sub = f"CPU a {temp:.0f} °C" if temp is not None else "Sensor no disponible"
+                sub = (_("CPU at {temp:.0f} °C").format(temp=temp) if temp is not None
+                       else _("Sensor not available"))
             elif uses_color:
                 sub = "#" + self.cfg.get("color", "ffffff").upper()
                 if uses_color2:
                     sub += "  →  #" + self.cfg.get("color2", "0033ff").upper()
             else:
-                sub = f"Velocidad {self.cfg.get('speed', 5)}"
+                sub = _("Speed {speed}").format(speed=self.cfg.get("speed", 5))
             sub += f"  ·  {self.cfg.get('intensity', 100)} %"
         self.preview_title.set_label(title)
         self.preview_subtitle.set_label(sub)
@@ -425,14 +429,15 @@ class Window(Adw.ApplicationWindow):
         devices = core.find_devices()
         names = ", ".join(d["name"] for d in devices)
         if len(devices) > 1:
-            names = f"{len(devices)} dispositivos: {names}"
+            names = ngettext("{n} device: {names}", "{n} devices: {names}",
+                             len(devices)).format(n=len(devices), names=names)
         self.win_title.set_subtitle(names)
         self.win_title.set_tooltip_text(
             "\n".join(f"{d['path']} · {d['name']}" for d in devices) or None)
         try:
             core.close_all(core.open_devices())
         except core.PermissionDenied:
-            self.banner.set_title("Sin permiso para el dispositivo: falta instalar la regla udev")
+            self.banner.set_title(_("No permission to access the device: the udev rule is not installed"))
             self.banner.set_revealed(True)
             return False
         except core.DeviceError as e:
@@ -442,7 +447,7 @@ class Window(Adw.ApplicationWindow):
         self.banner.set_revealed(False)
         return True
 
-    # ---------- eventos
+    # ---------- events
     def on_preset(self, _btn, h):
         self.color_btn.set_rgba(hex_to_rgba(h))
 
@@ -473,7 +478,7 @@ class Window(Adw.ApplicationWindow):
         cfg = copy.deepcopy(self.cfg)
         core.save_config(cfg)
         if core.is_animated(cfg):
-            ensure_service()  # el servicio detecta el cambio y anima
+            ensure_service()  # the service picks up the change and animates
             return False
         try:
             core.apply_config(cfg)
@@ -481,7 +486,7 @@ class Window(Adw.ApplicationWindow):
         except core.DeviceError:
             self.check_device()
         except OSError as e:
-            self.toasts.add_toast(Adw.Toast(title=f"Error al aplicar: {e.strerror}"))
+            self.toasts.add_toast(Adw.Toast(title=_("Could not apply: {error}").format(error=e.strerror)))
         return False
 
 
