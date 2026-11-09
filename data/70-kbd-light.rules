@@ -1,2 +1,7 @@
-# Teclado ASUS ITE51368 (0B05:19B6, I2C HID LampArray): acceso al usuario con sesión activa
-SUBSYSTEM=="hidraw", KERNELS=="0018:0B05:19B6.*", TAG+="uaccess"
+# Give the active local session access to HID LampArray lighting devices
+# (Windows "Dynamic Lighting"): hidraw nodes whose report descriptor contains
+# a LampArray application collection, i.e.
+#   Usage Page (Lighting and Illumination, 0x59)  05 59  |  06 59 00
+#   Usage (LampArray, 0x01)                       09 01
+#   Collection (Application)                      a1 01
+SUBSYSTEM=="hidraw", ACTION!="remove", PROGRAM="/usr/bin/sh -c 'od -An -v -tx1 /sys%p/device/report_descriptor | tr -dc 0-9a-f | grep -q -e 05590901a101 -e 0659000901a101'", TAG+="uaccess"
