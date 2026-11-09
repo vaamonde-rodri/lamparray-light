@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""kbd-light: iluminación del teclado ASUS ITE51368 (0B05:19B6) vía HID LampArray.
+"""kbd-light: iluminación de teclados y dispositivos HID LampArray (Iluminación dinámica).
 
 Uso:
   kbd-light                    abre la aplicación gráfica
-  kbd-light info               muestra el dispositivo y nº de LEDs
+  kbd-light info               lista los dispositivos LampArray detectados
   kbd-light color RRGGBB [0-100]  color fijo e intensidad (%)
   kbd-light effect NOMBRE [1-10]  efecto y velocidad. Efectos: static, breathing,
                      rainbow, alternate, heartbeat, candle, aurora, strobe, cputemp
@@ -23,7 +23,6 @@ import struct
 import sys
 import time
 
-TARGET_ID = "0018:00000B05:000019B6"
 CONFIG_DIR = os.path.join(
     os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "kbd-light"
 )
@@ -112,10 +111,12 @@ def get_params(cfg, effect):
     values = {p["key"]: p["default"] for p in EFFECT_PARAMS.get(effect, [])}
     values.update(cfg.get("params", {}).get(effect, {}))
     return values
+
+
 FPS = 30
 
 PERMISSION_HELP = (
-    "Sin permiso para acceder al teclado. Instala la regla udev:\n"
+    "Sin permiso para acceder al dispositivo de iluminación. Instala la regla udev:\n"
     "  sudo install -m 644 ~/.local/share/kbd-light/70-kbd-light.rules /etc/udev/rules.d/\n"
     "  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw"
 )
@@ -133,25 +134,122 @@ def _ioc(direction, nr, size):
     return (direction << 30) | (size << 16) | (ord("H") << 8) | nr
 
 
-def find_device():
-    for d in sorted(glob.glob("/sys/class/hidraw/hidraw*")):
+# --- Descriptor HID ------------------------------------------------------------
+# Página de uso "Lighting and Illumination" (0x59) y colecciones LampArray
+LIGHTING_PAGE = 0x59
+LAMPARRAY_USAGE = (LIGHTING_PAGE << 16) | 0x01
+LAMP_REPORTS = {
+    0x02: "attributes",      # LampArrayAttributesReport
+    0x20: "attr_request",    # LampAttributesRequestReport
+    0x22: "attr_response",   # LampAttributesResponseReport
+    0x50: "multi_update",    # LampMultiUpdateReport
+    0x60: "range_update",    # LampRangeUpdateReport
+    0x70: "control",         # LampArrayControlReport
+}
+REQUIRED_REPORTS = ("attributes", "range_update", "control")
+
+
+def parse_lamparray(desc):
+    """Analiza un descriptor de informe HID.
+
+    Devuelve {nombre: (report_id, longitud_en_bytes)} para los informes de la
+    primera colección LampArray, o None si el dispositivo no es un LampArray
+    utilizable. La longitud incluye el byte de report ID.
+    """
+    page = report_id = rsize = rcount = 0
+    gstack, cstack, usages = [], [], []
+    in_lamparray = None
+    reports, bits = {}, {}
+    i = 0
+    while i < len(desc):
+        b = desc[i]
+        if b == 0xFE:  # "long item": no se usa en la práctica, se salta
+            i += 3 + (desc[i + 1] if i + 1 < len(desc) else 0)
+            continue
+        size = (0, 1, 2, 4)[b & 3]
+        kind, tag = (b >> 2) & 3, b >> 4
+        data = int.from_bytes(desc[i + 1:i + 1 + size], "little")
+        i += 1 + size
+
+        if kind == 1:  # global
+            if tag == 0:
+                page = data
+            elif tag == 7:
+                rsize = data
+            elif tag == 8:
+                report_id = data
+            elif tag == 9:
+                rcount = data
+            elif tag == 10:
+                gstack.append((page, report_id, rsize, rcount))
+            elif tag == 11 and gstack:
+                page, report_id, rsize, rcount = gstack.pop()
+        elif kind == 2:  # local
+            if tag == 0:
+                usages.append(data if size == 4 else (page << 16) | data)
+        elif kind == 0:  # main
+            if tag == 0xA:  # Collection
+                usage = usages[0] if usages else 0
+                name = None
+                if in_lamparray is None and usage == LAMPARRAY_USAGE and data == 1:
+                    in_lamparray = len(cstack) + 1
+                elif in_lamparray is not None and usage >> 16 == LIGHTING_PAGE:
+                    name = LAMP_REPORTS.get(usage & 0xFFFF)
+                cstack.append(name)
+            elif tag == 0xC:  # End Collection
+                if in_lamparray is not None and len(cstack) == in_lamparray:
+                    break  # fin de la colección LampArray
+                if cstack:
+                    cstack.pop()
+            elif tag == 0xB and in_lamparray is not None:  # Feature
+                name = next((n for n in reversed(cstack) if n), None)
+                if name:
+                    reports.setdefault(name, report_id)
+                    if reports[name] == report_id:
+                        bits[name] = bits.get(name, 0) + rsize * rcount
+            usages = []
+
+    if not all(r in reports for r in REQUIRED_REPORTS):
+        return None
+    return {n: (rid, (1 if rid else 0) + (bits.get(n, 0) + 7) // 8)
+            for n, rid in reports.items()}
+
+
+def find_devices():
+    """Lista los dispositivos hidraw que son LampArray: [{path, name, id, reports}]."""
+    found = []
+    for d in sorted(glob.glob("/sys/class/hidraw/hidraw*"),
+                    key=lambda p: int(p.rsplit("hidraw", 1)[1])):
         try:
+            with open(os.path.join(d, "device/report_descriptor"), "rb") as f:
+                reports = parse_lamparray(f.read())
+            if not reports:
+                continue
+            info = {}
             with open(os.path.join(d, "device/uevent")) as f:
-                if f"HID_ID={TARGET_ID}" in f.read():
-                    return "/dev/" + os.path.basename(d)
+                for line in f:
+                    k, _, v = line.strip().partition("=")
+                    info[k] = v
         except OSError:
-            pass
-    raise DeviceError("No se encontró el teclado ITE51368 (0B05:19B6).")
+            continue
+        found.append({
+            "path": "/dev/" + os.path.basename(d),
+            "name": info.get("HID_NAME", os.path.basename(d)),
+            "id": info.get("HID_ID", ""),
+            "reports": reports,
+        })
+    return found
 
 
-class Keyboard:
-    def __init__(self):
-        self.path = find_device()
+# --- Dispositivo LampArray -----------------------------------------------------
+class LampArray:
+    def __init__(self, dev):
+        self.path, self.name, self.reports = dev["path"], dev["name"], dev["reports"]
         try:
             self.fd = os.open(self.path, os.O_RDWR)
         except PermissionError as e:
             raise PermissionDenied(PERMISSION_HELP) from e
-        self._count = None
+        self._attrs = None
 
     def close(self):
         os.close(self.fd)
@@ -162,32 +260,44 @@ class Keyboard:
     def __exit__(self, *exc):
         self.close()
 
-    def _get_feature(self, report_id, length):
-        buf = bytearray(length)
-        buf[0] = report_id
-        fcntl.ioctl(self.fd, _ioc(3, 0x07, length), buf)
+    def _get_feature(self, name):
+        rid, length = self.reports[name]
+        buf = bytearray(max(length, 2))
+        buf[0] = rid
+        fcntl.ioctl(self.fd, _ioc(3, 0x07, len(buf)), buf)
         return bytes(buf)
 
-    def _set_feature(self, data):
-        buf = bytearray(data)
+    def _set_feature(self, name, payload):
+        rid, length = self.reports[name]
+        buf = bytearray([rid]) + payload
+        if len(buf) < length:
+            buf += bytes(length - len(buf))
         fcntl.ioctl(self.fd, _ioc(3, 0x06, len(buf)), buf)
 
     @property
+    def attributes(self):
+        """LampArrayAttributes: LampCount(u16), ancho, alto, fondo (µm), tipo, intervalo (µs)."""
+        if self._attrs is None:
+            data = self._get_feature("attributes")
+            off = 1 if self.reports["attributes"][0] else 0
+            values = struct.unpack_from("<HIIIII", data.ljust(off + 22, b"\0"), off)
+            self._attrs = dict(zip(("lamp_count", "width", "height", "depth", "kind",
+                                    "min_interval_us"), values))
+        return self._attrs
+
+    @property
     def lamp_count(self):
-        if self._count is None:
-            # 0x41 LampArrayAttributes: LampCount(u16) + 5 x u32
-            self._count = struct.unpack_from("<H", self._get_feature(0x41, 23), 1)[0]
-        return self._count
+        return self.attributes["lamp_count"]
 
     def set_autonomous(self, on):
-        # 0x46 LampArrayControl: AutonomousMode(u8)
-        self._set_feature(bytes([0x46, 1 if on else 0]))
+        # LampArrayControl: AutonomousMode(u8)
+        self._set_feature("control", bytes([1 if on else 0]))
 
     def write_rgb(self, r, g, b):
         """Escribe un color a todos los LEDs (requiere modo autónomo desactivado)."""
-        # 0x45 LampRangeUpdate: flags(u8) start(u16) end(u16) R G B I
+        # LampRangeUpdate: flags(u8) start(u16) end(u16) R G B I
         end = max(self.lamp_count - 1, 0)
-        self._set_feature(struct.pack("<BBHHBBBB", 0x45, 0x01, 0, end, r, g, b, 255))
+        self._set_feature("range_update", struct.pack("<BHHBBBB", 0x01, 0, end, r, g, b, 255))
 
     def set_color(self, hexcolor, intensity=100):
         r, g, b = parse_hex(hexcolor)
@@ -206,6 +316,35 @@ class Keyboard:
         else:
             self.set_autonomous(False)
             self.write_rgb(*frame(cfg, t))
+
+
+def open_devices():
+    """Abre todos los LampArray accesibles.
+
+    Lanza DeviceError si no hay ninguno y PermissionDenied si los hay pero
+    ninguno se puede abrir."""
+    devs = find_devices()
+    if not devs:
+        raise DeviceError("No se encontró ningún dispositivo de iluminación LampArray.")
+    opened, denied = [], None
+    for d in devs:
+        try:
+            opened.append(LampArray(d))
+        except PermissionDenied as e:
+            denied = e
+        except OSError:
+            pass
+    if not opened:
+        raise denied or DeviceError("No se pudo abrir ningún dispositivo LampArray.")
+    return opened
+
+
+def close_all(devices):
+    for d in devices:
+        try:
+            d.close()
+        except OSError:
+            pass
 
 
 def parse_hex(h):
@@ -359,8 +498,27 @@ def save_config(cfg):
 
 
 def apply_config(cfg=None):
-    with Keyboard() as kb:
-        kb.apply(cfg or load_config())
+    """Aplica la configuración a todos los dispositivos LampArray accesibles."""
+    cfg = cfg or load_config()
+    devices = open_devices()
+    try:
+        _apply_all(devices, cfg)
+    finally:
+        close_all(devices)
+
+
+def _apply_all(devices, cfg, t=0.0):
+    """Aplica a cada dispositivo; devuelve los que respondieron. Falla solo si fallan todos."""
+    ok, error = [], None
+    for d in devices:
+        try:
+            d.apply(cfg, t)
+            ok.append(d)
+        except OSError as e:
+            error = e
+    if not ok and error:
+        raise error
+    return ok
 
 
 def restore_with_retries(attempts=30, delay=1.0):
@@ -382,7 +540,7 @@ class Daemon:
     def __init__(self):
         from gi.repository import GLib
         self.GLib = GLib
-        self.kb = None
+        self.kbs = []
         self.cfg = load_config()
         self.t0 = time.monotonic()
         self.last = None
@@ -393,12 +551,8 @@ class Daemon:
         self.reload_pending = 0
 
     def _close(self):
-        if self.kb:
-            try:
-                self.kb.close()
-            except OSError:
-                pass
-            self.kb = None
+        close_all(self.kbs)
+        self.kbs = []
 
     def _stop_anim(self):
         if self.anim:
@@ -420,8 +574,10 @@ class Daemon:
     def _start(self):
         self.retry = 0
         try:
-            self.kb = Keyboard()
-            self.kb.apply(self.cfg, time.monotonic() - self.t0)
+            self.kbs = open_devices()
+            working = _apply_all(self.kbs, self.cfg, time.monotonic() - self.t0)
+            close_all(d for d in self.kbs if d not in working)
+            self.kbs = working
         except (DeviceError, OSError) as e:
             self._close()
             if self.retries_left > 0:
@@ -431,7 +587,9 @@ class Daemon:
                 print(f"kbd-light: no se pudo aplicar: {e}", file=sys.stderr)
             return False
         if is_animated(self.cfg):
-            self.anim = self.GLib.timeout_add(1000 // FPS, self._tick)
+            # respeta el intervalo mínimo que declare el dispositivo más lento
+            min_ms = max(d.attributes["min_interval_us"] for d in self.kbs) / 1000
+            self.anim = self.GLib.timeout_add(max(1000 // FPS, math.ceil(min_ms)), self._tick)
         else:
             self._close()
         return False
@@ -441,7 +599,8 @@ class Daemon:
         if rgb == self.last:
             return True
         try:
-            self.kb.write_rgb(*rgb)
+            for kb in self.kbs:
+                kb.write_rgb(*rgb)
             self.last = rgb
         except OSError:
             # El dispositivo pudo reenumerarse: reintentar desde cero
@@ -499,8 +658,23 @@ def main(argv):
     cmd = argv[1]
     try:
         if cmd == "info":
-            with Keyboard() as kb:
-                print(f"Dispositivo: {kb.path}\nLEDs: {kb.lamp_count}")
+            devs = find_devices()
+            if not devs:
+                raise DeviceError("No se encontró ningún dispositivo de iluminación LampArray.")
+            for dev in devs:
+                print(f"{dev['path']}  {dev['name']}  [{dev['id']}]")
+                print("  informes: " + ", ".join(
+                    f"{n}=0x{rid:02x}" for n, (rid, _l) in sorted(dev["reports"].items())))
+                try:
+                    with LampArray(dev) as la:
+                        a = la.attributes
+                        print(f"  LEDs: {a['lamp_count']}  tamaño: {a['width'] / 1000:.0f}×"
+                              f"{a['height'] / 1000:.0f} mm  intervalo mín.: "
+                              f"{a['min_interval_us'] / 1000:g} ms")
+                except PermissionDenied:
+                    print("  (sin permiso: instala la regla udev)")
+                except OSError as e:
+                    print(f"  (error al leer atributos: {e.strerror})")
         elif cmd == "color":
             if len(argv) < 3:
                 sys.exit(__doc__)

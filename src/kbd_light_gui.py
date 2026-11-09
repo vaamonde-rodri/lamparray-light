@@ -179,7 +179,8 @@ class Window(Adw.ApplicationWindow):
 
         # --- Estructura
         toolbar = Adw.ToolbarView()
-        header = Adw.HeaderBar()
+        self.win_title = Adw.WindowTitle(title="Iluminación del teclado")
+        header = Adw.HeaderBar(title_widget=self.win_title)
         self.power = Gtk.Switch(valign=Gtk.Align.CENTER,
                                 tooltip_text="Encender o apagar la iluminación")
         self.power.connect("notify::active", self.on_change)
@@ -421,11 +422,17 @@ class Window(Adw.ApplicationWindow):
         )
 
     def check_device(self):
+        devices = core.find_devices()
+        names = ", ".join(d["name"] for d in devices)
+        if len(devices) > 1:
+            names = f"{len(devices)} dispositivos: {names}"
+        self.win_title.set_subtitle(names)
+        self.win_title.set_tooltip_text(
+            "\n".join(f"{d['path']} · {d['name']}" for d in devices) or None)
         try:
-            with core.Keyboard():
-                pass
+            core.close_all(core.open_devices())
         except core.PermissionDenied:
-            self.banner.set_title("Sin permiso para el teclado: falta instalar la regla udev")
+            self.banner.set_title("Sin permiso para el dispositivo: falta instalar la regla udev")
             self.banner.set_revealed(True)
             return False
         except core.DeviceError as e:
