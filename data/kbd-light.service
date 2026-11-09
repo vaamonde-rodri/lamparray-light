@@ -1,0 +1,12 @@
+[Unit]
+Description=Restaurar la iluminación del teclado (al iniciar sesión y tras suspender)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/share/kbd-light/kbd_light.py daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

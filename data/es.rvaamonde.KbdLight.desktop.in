@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Iluminación del teclado
+Comment=Color, efectos e intensidad de la retroiluminación del teclado
+Exec=@BINDIR@/kbd-light
+Icon=input-keyboard
+Terminal=false
+Categories=Settings;HardwareSettings;GTK;
+Keywords=teclado;keyboard;rgb;luz;backlight;retroiluminación;
+StartupNotify=true

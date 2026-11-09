@@ -1,0 +1,2 @@
+# Teclado ASUS ITE51368 (0B05:19B6, I2C HID LampArray): acceso al usuario con sesión activa
+SUBSYSTEM=="hidraw", KERNELS=="0018:0B05:19B6.*", TAG+="uaccess"
