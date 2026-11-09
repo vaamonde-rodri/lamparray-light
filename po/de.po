@@ -1,0 +1,396 @@
+# German translation for kbd-light.
+# Copyright (C) 2026 Rodrigo Vaamonde
+# This file is distributed under the same license as the kbd-light package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kbd-light\n"
+"PO-Revision-Date: 2026-11-09 22:30+0100\n"
+"Last-Translator: Claude (AI-assisted translation; native review welcome)\n"
+"Language-Team: none\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/kbd_light_gui.py:23
+msgid "White"
+msgstr "Weiß"
+
+#: src/kbd_light_gui.py:23
+msgid "Warm white"
+msgstr "Warmweiß"
+
+#: src/kbd_light_gui.py:23
+msgid "Red"
+msgstr "Rot"
+
+#: src/kbd_light_gui.py:24
+msgid "Orange"
+msgstr "Orange"
+
+#: src/kbd_light_gui.py:24
+msgid "Yellow"
+msgstr "Gelb"
+
+#: src/kbd_light_gui.py:24
+msgid "Green"
+msgstr "Grün"
+
+#: src/kbd_light_gui.py:25
+msgid "Turquoise"
+msgstr "Türkis"
+
+#: src/kbd_light_gui.py:25
+msgid "Light blue"
+msgstr "Hellblau"
+
+#: src/kbd_light_gui.py:25
+msgid "Blue"
+msgstr "Blau"
+
+#: src/kbd_light_gui.py:26
+msgid "Purple"
+msgstr "Lila"
+
+#: src/kbd_light_gui.py:26
+msgid "Pink"
+msgstr "Pink"
+
+#: src/kbd_light_gui.py:168 src/kbd_light_gui.py:183
+msgid "Keyboard Lighting"
+msgstr "Tastaturbeleuchtung"
+
+#: src/kbd_light_gui.py:186
+msgid "Turn the lighting on or off"
+msgstr "Beleuchtung ein- oder ausschalten"
+
+#: src/kbd_light_gui.py:191
+msgid "Retry"
+msgstr "Erneut versuchen"
+
+#: src/kbd_light_gui.py:226
+msgid "Custom"
+msgstr "Benutzerdefiniert"
+
+#: src/kbd_light_gui.py:228
+msgid "Laptop (Fn ↑/↓)"
+msgstr "Laptop (Fn ↑/↓)"
+
+#: src/kbd_light_gui.py:234
+msgid "Effect"
+msgstr "Effekt"
+
+#: src/kbd_light_gui.py:261
+msgid "Color"
+msgstr "Farbe"
+
+#: src/kbd_light_gui.py:264
+msgid "Main color"
+msgstr "Hauptfarbe"
+
+#: src/kbd_light_gui.py:266
+msgid "Choose a color"
+msgstr "Farbe auswählen"
+
+#: src/kbd_light_gui.py:273
+msgid "Second color"
+msgstr "Zweite Farbe"
+
+#: src/kbd_light_gui.py:275
+msgid "Choose the second color"
+msgstr "Zweite Farbe auswählen"
+
+#: src/kbd_light_gui.py:297
+msgid "Brightness"
+msgstr "Helligkeit"
+
+#: src/kbd_light_gui.py:302
+msgid "Speed"
+msgstr "Geschwindigkeit"
+
+#: src/kbd_light_gui.py:396
+#, python-brace-format
+msgid "Settings · {effect}"
+msgstr "Einstellungen · {effect}"
+
+#: src/kbd_light_gui.py:399
+msgid "Off"
+msgstr "Aus"
+
+#: src/kbd_light_gui.py:399
+msgid "The keyboard lighting is turned off"
+msgstr "Die Tastaturbeleuchtung ist ausgeschaltet"
+
+#: src/kbd_light_gui.py:401
+msgid "Laptop"
+msgstr "Laptop"
+
+#: src/kbd_light_gui.py:401
+msgid "Brightness is controlled with Fn + ↑ / ↓"
+msgstr "Die Helligkeit wird mit Fn + ↑ / ↓ gesteuert"
+
+#: src/kbd_light_gui.py:406
+#, python-brace-format
+msgid "CPU at {temp:.0f} °C"
+msgstr "CPU bei {temp:.0f} °C"
+
+#: src/kbd_light_gui.py:407
+msgid "Sensor not available"
+msgstr "Sensor nicht verfügbar"
+
+#: src/kbd_light_gui.py:413
+#, python-brace-format
+msgid "Speed {speed}"
+msgstr "Geschwindigkeit {speed}"
+
+#: src/kbd_light_gui.py:432
+#, python-brace-format
+msgid "{n} device: {names}"
+msgid_plural "{n} devices: {names}"
+msgstr[0] "{n} Gerät: {names}"
+msgstr[1] "{n} Geräte: {names}"
+
+#: src/kbd_light_gui.py:440
+msgid "No permission to access the device: the udev rule is not installed"
+msgstr "Keine Berechtigung für das Gerät: Die udev-Regel ist nicht installiert"
+
+#: src/kbd_light_gui.py:489
+#, python-brace-format
+msgid "Could not apply: {error}"
+msgstr "Anwenden fehlgeschlagen: {error}"
+
+#: src/kbd_light.py:21
+msgid ""
+"Usage:\n"
+"  kbd-light                       open the application\n"
+"  kbd-light info                  list the detected LampArray devices\n"
+"  kbd-light color RRGGBB [0-100]  static color and brightness (%)\n"
+"  kbd-light effect NAME [1-10]    effect and speed. Effects: static, breathing,\n"
+"                     rainbow, alternate, heartbeat, candle, aurora, strobe, cputemp\n"
+"  kbd-light color2 RRGGBB         second color (for \"alternate\")\n"
+"  kbd-light auto                  hand control back to the firmware (Fn + ↑/↓)\n"
+"  kbd-light off                   turn the lighting off\n"
+"  kbd-light restore               apply the last saved settings\n"
+"  kbd-light daemon                run the background service (effects, login, resume)\n"
+msgstr ""
+"Verwendung:\n"
+"  kbd-light                       öffnet die Anwendung\n"
+"  kbd-light info                  listet die erkannten LampArray-Geräte auf\n"
+"  kbd-light color RRGGBB [0-100]  feste Farbe und Helligkeit (%)\n"
+"  kbd-light effect NAME [1-10]    Effekt und Geschwindigkeit. Effekte: static, breathing,\n"
+"                     rainbow, alternate, heartbeat, candle, aurora, strobe, cputemp\n"
+"  kbd-light color2 RRGGBB         zweite Farbe (für „alternate“)\n"
+"  kbd-light auto                  gibt die Steuerung an die Firmware zurück (Fn + ↑/↓)\n"
+"  kbd-light off                   schaltet die Beleuchtung aus\n"
+"  kbd-light restore               wendet die zuletzt gespeicherten Einstellungen an\n"
+"  kbd-light daemon                startet den Hintergrunddienst (Effekte, Anmeldung, Fortsetzen)\n"
+
+#: src/kbd_light.py:46
+msgid "Static"
+msgstr "Statisch"
+
+#: src/kbd_light.py:47
+msgid "Breathing"
+msgstr "Atmen"
+
+#: src/kbd_light.py:48
+msgid "Rainbow"
+msgstr "Regenbogen"
+
+#: src/kbd_light.py:49
+msgid "Alternate two colors"
+msgstr "Zwei Farben abwechseln"
+
+#: src/kbd_light.py:50
+msgid "Heartbeat"
+msgstr "Herzschlag"
+
+#: src/kbd_light.py:51
+msgid "Candle"
+msgstr "Kerze"
+
+#: src/kbd_light.py:52
+msgid "Aurora"
+msgstr "Polarlicht"
+
+#: src/kbd_light.py:53
+msgid "Strobe"
+msgstr "Stroboskop"
+
+#: src/kbd_light.py:54
+msgid "CPU temperature"
+msgstr "CPU-Temperatur"
+
+#: src/kbd_light.py:80
+msgid "Minimum brightness"
+msgstr "Minimale Helligkeit"
+
+#: src/kbd_light.py:81
+msgid "Curve"
+msgstr "Kurve"
+
+#: src/kbd_light.py:81
+msgid "Smooth"
+msgstr "Weich"
+
+#: src/kbd_light.py:81
+msgid "Sine"
+msgstr "Sinus"
+
+#: src/kbd_light.py:82
+msgid "Short and sharp"
+msgstr "Kurz und knackig"
+
+#: src/kbd_light.py:85
+msgid "Saturation"
+msgstr "Sättigung"
+
+#: src/kbd_light.py:86
+msgid "Direction"
+msgstr "Richtung"
+
+#: src/kbd_light.py:86
+msgid "Red → green → blue"
+msgstr "Rot → Grün → Blau"
+
+#: src/kbd_light.py:87
+msgid "Red → blue → green"
+msgstr "Rot → Blau → Grün"
+
+#: src/kbd_light.py:90
+msgid "Transition"
+msgstr "Übergang"
+
+#: src/kbd_light.py:90
+msgid "Fade"
+msgstr "Überblenden"
+
+#: src/kbd_light.py:90
+msgid "Cut"
+msgstr "Harter Wechsel"
+
+#: src/kbd_light.py:94
+msgid "Resting brightness"
+msgstr "Ruhehelligkeit"
+
+#: src/kbd_light.py:95
+msgid "Beats"
+msgstr "Schläge"
+
+#: src/kbd_light.py:95
+msgid "Double (lub-dub)"
+msgstr "Doppelt (Lub-Dub)"
+
+#: src/kbd_light.py:96
+msgid "Single"
+msgstr "Einfach"
+
+#: src/kbd_light.py:99
+msgid "Flicker strength"
+msgstr "Flackerstärke"
+
+#: src/kbd_light.py:102
+msgid "Palette"
+msgstr "Palette"
+
+#: src/kbd_light.py:102
+msgid "Boreal"
+msgstr "Nordlicht"
+
+#: src/kbd_light.py:102
+msgid "Sunset"
+msgstr "Sonnenuntergang"
+
+#: src/kbd_light.py:103
+msgid "Ocean"
+msgstr "Ozean"
+
+#: src/kbd_light.py:103
+msgid "Forest"
+msgstr "Wald"
+
+#: src/kbd_light.py:104
+msgid "Lava"
+msgstr "Lava"
+
+#: src/kbd_light.py:107
+msgid "Flash duration"
+msgstr "Blitzdauer"
+
+#: src/kbd_light.py:108
+msgid "Flashes per burst"
+msgstr "Blitze pro Serie"
+
+#: src/kbd_light.py:111
+msgid "“Cold” temperature (green)"
+msgstr "„Kalte“ Temperatur (grün)"
+
+#: src/kbd_light.py:112
+msgid "“Hot” temperature (red)"
+msgstr "„Heiße“ Temperatur (rot)"
+
+#: src/kbd_light.py:113
+msgid "Above the hot temperature"
+msgstr "Oberhalb der heißen Temperatur"
+
+#: src/kbd_light.py:113
+msgid "Nothing"
+msgstr "Nichts"
+
+#: src/kbd_light.py:114
+msgid "Blink red"
+msgstr "Rot blinken"
+
+#: src/kbd_light.py:129
+msgid ""
+"No permission to access the lighting device. Install the udev rule:\n"
+"  sudo install -m 644 ~/.local/share/kbd-light/70-kbd-light.rules /etc/udev/rules.d/\n"
+"  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw"
+msgstr ""
+"Keine Berechtigung für das Beleuchtungsgerät. Installiere die udev-Regel:\n"
+"  sudo install -m 644 ~/.local/share/kbd-light/70-kbd-light.rules /etc/udev/rules.d/\n"
+"  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw"
+
+#: src/kbd_light.py:338 src/kbd_light.py:673
+msgid "No LampArray lighting device found."
+msgstr "Kein LampArray-Beleuchtungsgerät gefunden."
+
+#: src/kbd_light.py:348
+msgid "Could not open any LampArray device."
+msgstr "Kein LampArray-Gerät konnte geöffnet werden."
+
+#: src/kbd_light.py:364
+msgid "Invalid color: {color!r} (use RRGGBB)"
+msgstr "Ungültige Farbe: {color!r} (Format RRGGBB)"
+
+#: src/kbd_light.py:546
+#, python-brace-format
+msgid "could not restore the settings: {error}"
+msgstr "Einstellungen konnten nicht wiederhergestellt werden: {error}"
+
+#: src/kbd_light.py:602
+#, python-brace-format
+msgid "could not apply the settings: {error}"
+msgstr "Einstellungen konnten nicht angewendet werden: {error}"
+
+#: src/kbd_light.py:676
+msgid "reports:"
+msgstr "Reports:"
+
+#: src/kbd_light.py:681
+#, python-brace-format
+msgid ""
+"LEDs: {count}  size: {width:.0f}×{height:.0f} mm  min. interval: {interval:g} ms"
+msgstr ""
+"LEDs: {count}  Größe: {width:.0f}×{height:.0f} mm  min. Intervall: {interval:g} ms"
+
+#: src/kbd_light.py:686
+msgid "(no permission: install the udev rule)"
+msgstr "(keine Berechtigung: udev-Regel installieren)"
+
+#: src/kbd_light.py:688
+#, python-brace-format
+msgid "(could not read the attributes: {error})"
+msgstr "(Attribute konnten nicht gelesen werden: {error})"

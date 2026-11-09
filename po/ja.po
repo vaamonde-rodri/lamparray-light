@@ -1,0 +1,394 @@
+# Japanese translation for kbd-light.
+# Copyright (C) 2026 Rodrigo Vaamonde
+# This file is distributed under the same license as the kbd-light package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: kbd-light\n"
+"PO-Revision-Date: 2026-11-09 22:30+0100\n"
+"Last-Translator: Claude (AI-assisted translation; native review welcome)\n"
+"Language-Team: none\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/kbd_light_gui.py:23
+msgid "White"
+msgstr "ホワイト"
+
+#: src/kbd_light_gui.py:23
+msgid "Warm white"
+msgstr "暖色ホワイト"
+
+#: src/kbd_light_gui.py:23
+msgid "Red"
+msgstr "レッド"
+
+#: src/kbd_light_gui.py:24
+msgid "Orange"
+msgstr "オレンジ"
+
+#: src/kbd_light_gui.py:24
+msgid "Yellow"
+msgstr "イエロー"
+
+#: src/kbd_light_gui.py:24
+msgid "Green"
+msgstr "グリーン"
+
+#: src/kbd_light_gui.py:25
+msgid "Turquoise"
+msgstr "ターコイズ"
+
+#: src/kbd_light_gui.py:25
+msgid "Light blue"
+msgstr "ライトブルー"
+
+#: src/kbd_light_gui.py:25
+msgid "Blue"
+msgstr "ブルー"
+
+#: src/kbd_light_gui.py:26
+msgid "Purple"
+msgstr "パープル"
+
+#: src/kbd_light_gui.py:26
+msgid "Pink"
+msgstr "ピンク"
+
+#: src/kbd_light_gui.py:168 src/kbd_light_gui.py:183
+msgid "Keyboard Lighting"
+msgstr "キーボードライティング"
+
+#: src/kbd_light_gui.py:186
+msgid "Turn the lighting on or off"
+msgstr "ライティングのオン/オフ"
+
+#: src/kbd_light_gui.py:191
+msgid "Retry"
+msgstr "再試行"
+
+#: src/kbd_light_gui.py:226
+msgid "Custom"
+msgstr "カスタム"
+
+#: src/kbd_light_gui.py:228
+msgid "Laptop (Fn ↑/↓)"
+msgstr "ノートPC (Fn ↑/↓)"
+
+#: src/kbd_light_gui.py:234
+msgid "Effect"
+msgstr "エフェクト"
+
+#: src/kbd_light_gui.py:261
+msgid "Color"
+msgstr "カラー"
+
+#: src/kbd_light_gui.py:264
+msgid "Main color"
+msgstr "メインカラー"
+
+#: src/kbd_light_gui.py:266
+msgid "Choose a color"
+msgstr "色を選択"
+
+#: src/kbd_light_gui.py:273
+msgid "Second color"
+msgstr "セカンドカラー"
+
+#: src/kbd_light_gui.py:275
+msgid "Choose the second color"
+msgstr "2番目の色を選択"
+
+#: src/kbd_light_gui.py:297
+msgid "Brightness"
+msgstr "明るさ"
+
+#: src/kbd_light_gui.py:302
+msgid "Speed"
+msgstr "速度"
+
+#: src/kbd_light_gui.py:396
+#, python-brace-format
+msgid "Settings · {effect}"
+msgstr "設定 · {effect}"
+
+#: src/kbd_light_gui.py:399
+msgid "Off"
+msgstr "オフ"
+
+#: src/kbd_light_gui.py:399
+msgid "The keyboard lighting is turned off"
+msgstr "キーボードライティングはオフです"
+
+#: src/kbd_light_gui.py:401
+msgid "Laptop"
+msgstr "ノートPC"
+
+#: src/kbd_light_gui.py:401
+msgid "Brightness is controlled with Fn + ↑ / ↓"
+msgstr "明るさは Fn + ↑ / ↓ で調整します"
+
+#: src/kbd_light_gui.py:406
+#, python-brace-format
+msgid "CPU at {temp:.0f} °C"
+msgstr "CPU {temp:.0f} °C"
+
+#: src/kbd_light_gui.py:407
+msgid "Sensor not available"
+msgstr "センサーを利用できません"
+
+#: src/kbd_light_gui.py:413
+#, python-brace-format
+msgid "Speed {speed}"
+msgstr "速度 {speed}"
+
+#: src/kbd_light_gui.py:432
+#, python-brace-format
+msgid "{n} device: {names}"
+msgid_plural "{n} devices: {names}"
+msgstr[0] "{n} 台のデバイス: {names}"
+
+#: src/kbd_light_gui.py:440
+msgid "No permission to access the device: the udev rule is not installed"
+msgstr "デバイスへのアクセス権がありません: udev ルールがインストールされていません"
+
+#: src/kbd_light_gui.py:489
+#, python-brace-format
+msgid "Could not apply: {error}"
+msgstr "適用できませんでした: {error}"
+
+#: src/kbd_light.py:21
+msgid ""
+"Usage:\n"
+"  kbd-light                       open the application\n"
+"  kbd-light info                  list the detected LampArray devices\n"
+"  kbd-light color RRGGBB [0-100]  static color and brightness (%)\n"
+"  kbd-light effect NAME [1-10]    effect and speed. Effects: static, breathing,\n"
+"                     rainbow, alternate, heartbeat, candle, aurora, strobe, cputemp\n"
+"  kbd-light color2 RRGGBB         second color (for \"alternate\")\n"
+"  kbd-light auto                  hand control back to the firmware (Fn + ↑/↓)\n"
+"  kbd-light off                   turn the lighting off\n"
+"  kbd-light restore               apply the last saved settings\n"
+"  kbd-light daemon                run the background service (effects, login, resume)\n"
+msgstr ""
+"使い方:\n"
+"  kbd-light                       アプリケーションを開く\n"
+"  kbd-light info                  検出された LampArray デバイスを一覧表示\n"
+"  kbd-light color RRGGBB [0-100]  固定色と明るさ (%)\n"
+"  kbd-light effect NAME [1-10]    エフェクトと速度。エフェクト: static, breathing,\n"
+"                     rainbow, alternate, heartbeat, candle, aurora, strobe, cputemp\n"
+"  kbd-light color2 RRGGBB         2番目の色 (alternate 用)\n"
+"  kbd-light auto                  制御をファームウェアに戻す (Fn + ↑/↓)\n"
+"  kbd-light off                   ライティングをオフにする\n"
+"  kbd-light restore               最後に保存した設定を適用\n"
+"  kbd-light daemon                バックグラウンドサービスを実行 (エフェクト、ログイン、復帰)\n"
+
+#: src/kbd_light.py:46
+msgid "Static"
+msgstr "スタティック"
+
+#: src/kbd_light.py:47
+msgid "Breathing"
+msgstr "ブリージング"
+
+#: src/kbd_light.py:48
+msgid "Rainbow"
+msgstr "レインボー"
+
+#: src/kbd_light.py:49
+msgid "Alternate two colors"
+msgstr "2色を交互に"
+
+#: src/kbd_light.py:50
+msgid "Heartbeat"
+msgstr "ハートビート"
+
+#: src/kbd_light.py:51
+msgid "Candle"
+msgstr "キャンドル"
+
+#: src/kbd_light.py:52
+msgid "Aurora"
+msgstr "オーロラ"
+
+#: src/kbd_light.py:53
+msgid "Strobe"
+msgstr "ストロボ"
+
+#: src/kbd_light.py:54
+msgid "CPU temperature"
+msgstr "CPU 温度"
+
+#: src/kbd_light.py:80
+msgid "Minimum brightness"
+msgstr "最小の明るさ"
+
+#: src/kbd_light.py:81
+msgid "Curve"
+msgstr "カーブ"
+
+#: src/kbd_light.py:81
+msgid "Smooth"
+msgstr "なめらか"
+
+#: src/kbd_light.py:81
+msgid "Sine"
+msgstr "サイン波"
+
+#: src/kbd_light.py:82
+msgid "Short and sharp"
+msgstr "短く鋭く"
+
+#: src/kbd_light.py:85
+msgid "Saturation"
+msgstr "彩度"
+
+#: src/kbd_light.py:86
+msgid "Direction"
+msgstr "方向"
+
+#: src/kbd_light.py:86
+msgid "Red → green → blue"
+msgstr "赤 → 緑 → 青"
+
+#: src/kbd_light.py:87
+msgid "Red → blue → green"
+msgstr "赤 → 青 → 緑"
+
+#: src/kbd_light.py:90
+msgid "Transition"
+msgstr "トランジション"
+
+#: src/kbd_light.py:90
+msgid "Fade"
+msgstr "フェード"
+
+#: src/kbd_light.py:90
+msgid "Cut"
+msgstr "カット"
+
+#: src/kbd_light.py:94
+msgid "Resting brightness"
+msgstr "待機時の明るさ"
+
+#: src/kbd_light.py:95
+msgid "Beats"
+msgstr "鼓動"
+
+#: src/kbd_light.py:95
+msgid "Double (lub-dub)"
+msgstr "ダブル (ドクン)"
+
+#: src/kbd_light.py:96
+msgid "Single"
+msgstr "シングル"
+
+#: src/kbd_light.py:99
+msgid "Flicker strength"
+msgstr "ゆらぎの強さ"
+
+#: src/kbd_light.py:102
+msgid "Palette"
+msgstr "パレット"
+
+#: src/kbd_light.py:102
+msgid "Boreal"
+msgstr "北極光"
+
+#: src/kbd_light.py:102
+msgid "Sunset"
+msgstr "夕焼け"
+
+#: src/kbd_light.py:103
+msgid "Ocean"
+msgstr "海"
+
+#: src/kbd_light.py:103
+msgid "Forest"
+msgstr "森"
+
+#: src/kbd_light.py:104
+msgid "Lava"
+msgstr "溶岩"
+
+#: src/kbd_light.py:107
+msgid "Flash duration"
+msgstr "フラッシュの長さ"
+
+#: src/kbd_light.py:108
+msgid "Flashes per burst"
+msgstr "1回あたりの点滅数"
+
+#: src/kbd_light.py:111
+msgid "“Cold” temperature (green)"
+msgstr "「低温」の温度 (緑)"
+
+#: src/kbd_light.py:112
+msgid "“Hot” temperature (red)"
+msgstr "「高温」の温度 (赤)"
+
+#: src/kbd_light.py:113
+msgid "Above the hot temperature"
+msgstr "高温を超えたとき"
+
+#: src/kbd_light.py:113
+msgid "Nothing"
+msgstr "何もしない"
+
+#: src/kbd_light.py:114
+msgid "Blink red"
+msgstr "赤く点滅"
+
+#: src/kbd_light.py:129
+msgid ""
+"No permission to access the lighting device. Install the udev rule:\n"
+"  sudo install -m 644 ~/.local/share/kbd-light/70-kbd-light.rules /etc/udev/rules.d/\n"
+"  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw"
+msgstr ""
+"ライティングデバイスへのアクセス権がありません。udev ルールをインストールしてください:\n"
+"  sudo install -m 644 ~/.local/share/kbd-light/70-kbd-light.rules /etc/udev/rules.d/\n"
+"  sudo udevadm control --reload && sudo udevadm trigger --subsystem-match=hidraw"
+
+#: src/kbd_light.py:338 src/kbd_light.py:673
+msgid "No LampArray lighting device found."
+msgstr "LampArray ライティングデバイスが見つかりません。"
+
+#: src/kbd_light.py:348
+msgid "Could not open any LampArray device."
+msgstr "LampArray デバイスを開けませんでした。"
+
+#: src/kbd_light.py:364
+msgid "Invalid color: {color!r} (use RRGGBB)"
+msgstr "無効な色: {color!r} (RRGGBB 形式で指定)"
+
+#: src/kbd_light.py:546
+#, python-brace-format
+msgid "could not restore the settings: {error}"
+msgstr "設定を復元できませんでした: {error}"
+
+#: src/kbd_light.py:602
+#, python-brace-format
+msgid "could not apply the settings: {error}"
+msgstr "設定を適用できませんでした: {error}"
+
+#: src/kbd_light.py:676
+msgid "reports:"
+msgstr "レポート:"
+
+#: src/kbd_light.py:681
+#, python-brace-format
+msgid ""
+"LEDs: {count}  size: {width:.0f}×{height:.0f} mm  min. interval: {interval:g} ms"
+msgstr "LED: {count}  サイズ: {width:.0f}×{height:.0f} mm  最小間隔: {interval:g} ms"
+
+#: src/kbd_light.py:686
+msgid "(no permission: install the udev rule)"
+msgstr "(権限なし: udev ルールをインストールしてください)"
+
+#: src/kbd_light.py:688
+#, python-brace-format
+msgid "(could not read the attributes: {error})"
+msgstr "(属性を読み取れませんでした: {error})"
